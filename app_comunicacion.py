@@ -65,18 +65,32 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Servidor de datos compartido en memoria para usuarios externos
+# ==========================================
+# GESTIÓN DE MEMORIA GLOBAL Y LIMPIEZA (1 HORA)
+# ==========================================
 @st.cache_resource
-def obtener_memoria_chat():
-    return []
+def obtener_servidor_datos():
+    # Retorna un diccionario para rastrear el historial y el tiempo de expiración
+    return {
+        "mensajes": [],
+        "ultima_limpieza": time.time()
+    }
 
-historial_global = obtener_memoria_chat()
+servidor_datos = obtener_servidor_datos()
+
+# Verificación de tiempo transcurrido (3600 segundos = 1 hora)
+tiempo_actual = time.time()
+if tiempo_actual - servidor_datos["ultima_limpieza"] >= 3600:
+    servidor_datos["mensajes"] = []  # Vacía el chat por completo
+    servidor_datos["ultima_limpieza"] = tiempo_actual  # Reinicia el contador de hora
+
+historial_global = servidor_datos["mensajes"]
 
 # Cabecera de la Aplicación
 st.markdown("""
     <div class="hik-header">
         <h2 style='margin:0; font-size:22px;'>🎛️ Centro de Comunicaciones</h2>
-        <p style='margin:5px 0 0 0; color:#8a94a6 !important; font-size:13px;'>SYS_STATUS: ONLINE | SECURITY: SSL_ENCRYPTED | LIVE FEED MAX 4 NODES</p>
+        <p style='margin:5px 0 0 0; color:#8a94a6 !important; font-size:13px;'>SYS_STATUS: ONLINE | SECURITY: SSL_ENCRYPTED | AUTO-CLEAR: 60 MIN</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -95,7 +109,7 @@ with col_chat:
     
     with contenedor_mensajes:
         if not historial_global:
-            st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual.</span>", unsafe_allow_html=True)
+            st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual. (Limpiado automáticamente de forma horaria).</span>", unsafe_allow_html=True)
         else:
             for msg in historial_global:
                 hora_actual = msg["hora"]
@@ -119,15 +133,16 @@ with col_chat:
             st.rerun()
 
 # ==========================================
-# 2. PANEL DE VIDEO SEGURO (SOLUCIÓN DEFINITIVA)
+# 2. PANEL DE VIDEO SEGURO (CONEXIÓN DIRECTA)
 # ==========================================
 with col_video:
     st.markdown("### 📺 Video en Directo")
     
     ID_SALA_EQUIPO = "Aura19997822252"
     
-    # SOLUCIÓN COMPLETA: Usamos la API Oficial. Al poner 'prejoinPageEnabled: false', 
-    # la pantalla donde dice "Entrar a la reunión" desaparece por completo y entras directo.
+    # Para saltarse la pantalla de pre-unión de forma obligatoria, inyectamos el parámetro 
+    # 'config.prejoinPageEnabled=false' directamente en el Hash de la URL de carga de la API,
+    # sumado a configuraciones estrictas en el constructor de la interfaz.
     codigo_api_jitsi = f"""
     <div id="jitsi-container" style="height: 485px; width: 100%; border: 1px solid #283143; border-radius: 4px; background-color: #171b26;"></div>
     
@@ -135,7 +150,7 @@ with col_video:
     <script>
         const domain = 'meet.jit.si';
         const options = {{
-            roomName: '{ID_SALA_EQUIPO}',
+            roomName: '{ID_SALA_EQUIPO}#config.prejoinPageEnabled=false&config.startWithVideoMuted=false&config.startWithAudioMuted=false',
             width: '100%',
             height: 485,
             parentNode: document.querySelector('#jitsi-container'),
@@ -145,19 +160,20 @@ with col_video:
             configOverwrite: {{ 
                 startWithVideoMuted: false,
                 startWithAudioMuted: false,
-                prejoinPageEnabled: false, // <-- ESTO ELIMINA LA PANTALLA ANTES DE ENTRAR
+                prejoinPageEnabled: false,
                 disableDeepLinking: true
             }},
             interfaceConfigOverwrite: {{
                 SHOW_JITSI_WATERMARK: false,
                 SHOW_BRAND_WATERMARK: false,
-                DISPLAY_WELCOME_PAGE: false
+                DISPLAY_WELCOME_PAGE: false,
+                filmStripOnly: false
             }}
         }};
         
         const api = new JitsiMeetExternalAPI(domain, options);
         
-        // INTERCEPTOR DE SALIDA: Limpia la pantalla al colgar
+        // Al colgar la llamada destruimos la sesión publicitaria y limpiamos la consola
         api.addEventListener('videoConferenceLeft', () => {{
             const container = document.querySelector('#jitsi-container');
             container.innerHTML = `
@@ -172,8 +188,6 @@ with col_video:
     </script>
     """
     
-    # CORRECCIÓN DE PERMISOS: Se añaden explícitamente "camera; microphone" al componente html
-    # para solucionar permanentemente el error de WebRTC en navegadores.
     st.components.v1.html(codigo_api_jitsi, height=490, scrolling=False)
     st.markdown(f"<span style='color:#8a94a6; font-size:12px;'>ID de la matriz activa: <code>{ID_SALA_EQUIPO}</code></span>", unsafe_allow_html=True)
 
