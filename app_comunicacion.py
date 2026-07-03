@@ -103,16 +103,14 @@ with col_chat:
         else:
             for i, msg in enumerate(historial_global):
                 hora_actual = msg["hora"]
-                # Colocamos un ID HTML únicamente al último mensaje de la lista
-                id_ultimo = 'id="ultimo_msg"' if i == len(historial_global) - 1 else ""
-                
+                # Colocamos una clase identificadora para rastrear el contenedor
                 if msg["remitente"] == usuario:
-                    st.markdown(f"<div {id_ultimo} style='margin-bottom: 8px;'><b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='msg-item' style='margin-bottom: 8px;'><b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
                 else:
-                    st.markdown(f"<div {id_ultimo} style='margin-bottom: 8px;'><b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='msg-item' style='margin-bottom: 8px;'><b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
                 st.markdown("<hr style='margin:8px 0; border:0; border-top:1px solid #283143;'>", unsafe_allow_html=True)
 
-    # REPRODUCTOR DE AUDIO Y CONTROL DE ENFOQUE AUTOMÁTICO (JS FIJO)
+    # REPRODUCTOR DE AUDIO Y CONTROL DE ENFOQUE AUTOMÁTICO AL CONTENEDOR INTERNO (JS)
     reproducir_alerta = "false"
     if len(historial_global) > st.session_state["mensajes_leidos"]:
         st.session_state["mensajes_leidos"] = len(historial_global)
@@ -120,15 +118,23 @@ with col_chat:
 
     st.components.v1.html(f"""
         <script>
-            // Forzar el scroll inferior SIEMPRE (para tus mensajes y los externos)
+            // Forzar el scroll inferior buscando el div interno con overflow que genera Streamlit
             setTimeout(() => {{
-                const chatContainer = window.parent.document.getElementById('ultimo_msg');
-                if (chatContainer) {{
-                    chatContainer.scrollIntoView({{ behavior: 'smooth', block: 'end' }});
+                const msgElements = window.parent.document.getElementsByClassName('msg-item');
+                if (msgElements.length > 0) {{
+                    // Obtenemos el contenedor padre directo que maneja el scroll del st.container
+                    const scrollContainer = msgElements[0].closest('div[data-testid="stVVerticalBlock"]');
+                    if (scrollContainer) {{
+                        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+                    }} else {{
+                        // Alternativa fallback por si cambia el atributo de datos
+                        const alternativo = msgElements[msgElements.length - 1];
+                        alternativo.scrollIntoView({{ behavior: 'auto', block: 'end' }});
+                    }}
                 }}
-            }}, 30);
+            }}, 50);
 
-            // Alerta sonora industrial sin bloqueos si entra un mensaje de terceros
+            // Alerta sonora industrial sin bloqueos del navegador
             if ({reproducir_alerta} === true) {{
                 var audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2357/2357-84.wav");
                 audio.volume = 0.6;
@@ -148,7 +154,7 @@ with col_chat:
                 "texto": nuevo_mensaje,
                 "hora": ahora
             })
-            # Sincronizamos el contador local inmediatamente para evitar duplicar el audio al enviar tú mismo
+            # Forzamos la actualización inmediata del estado local para tu mensaje
             st.session_state["mensajes_leidos"] = len(historial_global)
             st.rerun()
 
@@ -160,6 +166,8 @@ with col_video:
     
     ID_SALA_EQUIPO = "Aura19997822252"
     
+    # Inyección de la API JS oficial. Captura el evento 'videoConferenceLeft' (cuando cuelgas)
+    # y borra el contenedor de Jitsi reemplazándolo por un aviso oscuro integrado tipo HikCentral.
     codigo_api_jitsi = f"""
     <div id="jitsi-container" style="height: 485px; width: 100%; border: 1px solid #283143; border-radius: 4px; background-color: #171b26;"></div>
     
@@ -185,6 +193,7 @@ with col_video:
         
         const api = new JitsiMeetExternalAPI(domain, options);
         
+        // INTERCEPTOR DE SALIDA: Elimina la publicidad de Jitsi al colgar
         api.addEventListener('videoConferenceLeft', () => {{
             const container = document.querySelector('#jitsi-container');
             container.innerHTML = `
