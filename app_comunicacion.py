@@ -62,6 +62,11 @@ st.markdown("""
         button[data-testid="baseButton-secondaryFormSubmit"]:hover {
             background-color: #0056c7 !important;
         }
+        
+        /* Forzar ocultamiento del scrollbar horizontal molesto */
+        iframe {
+            overflow: hidden !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -71,6 +76,10 @@ def obtener_memoria_chat():
     return []
 
 historial_global = obtener_memoria_chat()
+
+# Inicializador de banderas de notificación por sesión de usuario
+if "mensajes_vistos" not in st.session_state:
+    st.session_state["mensajes_vistos"] = len(historial_global)
 
 # Cabecera de la Aplicación
 st.markdown("""
@@ -84,26 +93,53 @@ st.markdown("""
 col_chat, col_video = st.columns([1, 1.8])
 
 # ==========================================
-# 1. PANEL DE MENSIDERÍA (COLUMNA IZQUIERDA)
+# 1. PANEL DE MENSAJERÍA (COLUMNA IZQUIERDA)
 # ==========================================
 with col_chat:
     st.markdown("### 🗪 Centro de Mensajes")
     
     usuario = st.text_input("Operador:", value="Operador_1", key="alias_usuario")
     
+    # Contenedor dinámico de mensajes
     contenedor_mensajes = st.container(height=420)
     
     with contenedor_mensajes:
         if not historial_global:
             st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual.</span>", unsafe_allow_html=True)
         else:
-            for msg in historial_global:
+            for i, msg in enumerate(historial_global):
                 hora_actual = msg["hora"]
+                # Añadimos un ID incremental único a cada mensaje para que JS pueda hacer scroll-focus al último elemento
+                id_attr = f'id="ultimo_msg"' if i == len(historial_global) - 1 else ""
+                
                 if msg["remitente"] == usuario:
-                    st.markdown(f"<b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}", unsafe_allow_html=True)
+                    st.markdown(f"<div {id_attr} style='margin-bottom:4px;'><b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
                 else:
-                    st.markdown(f"<b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}", unsafe_allow_html=True)
+                    st.markdown(f"<div {id_attr} style='margin-bottom:4px;'><b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
                 st.markdown("<hr style='margin:8px 0; border:0; border-top:1px solid #283143;'>", unsafe_allow_html=True)
+            
+            # SCRIPT DE AUTO-FOCUS (Auto-Scroll al último mensaje recibido)
+            st.markdown("""
+                <script>
+                    setTimeout(() => {
+                        const elemento = document.getElementById('ultimo_msg');
+                        if (elemento) {
+                            elemento.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }
+                    }, 100);
+                </script>
+            """, unsafe_allow_html=True)
+
+    # Inyección del efecto de sonido si hay un mensaje nuevo en el buffer global
+    if len(historial_global) > st.session_state["mensajes_vistos"]:
+        st.session_state["mensajes_vistos"] = len(historial_global)
+        # Audio limpio sintetizado en formato Base64 (un 'Ping' nítido de notificación VMS)
+        st.markdown("""
+            <audio autoplay>
+                <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==\n" type="audio/wav">
+                <source src="https://assets.mixkit.co/active_storage/sfx/2357/2357-84.wav" type="audio/wav">
+            </audio>
+        """, unsafe_allow_html=True)
 
     with st.form("formulario_envio", clear_on_submit=True):
         nuevo_mensaje = st.text_input("Ingresar mensaje...", placeholder="Escribir mensaje...")
@@ -116,18 +152,19 @@ with col_chat:
                 "texto": nuevo_mensaje,
                 "hora": ahora
             })
+            st.session_state["mensajes_vistos"] = len(historial_global)
             st.rerun()
 
 # ==========================================
-# 2. PANEL DE VIDEO SEGURO (SOLUCIÓN DEFINITIVA)
+# 2. PANEL DE VIDEO SEGURO (CONEXIÓN DIRECTA)
 # ==========================================
 with col_video:
     st.markdown("### 📺 Video en Directo")
     
     ID_SALA_EQUIPO = "Aura19997822252"
     
-    # SOLUCIÓN COMPLETA: Usamos la API Oficial. Al poner 'prejoinPageEnabled: false', 
-    # la pantalla donde dice "Entrar a la reunión" desaparece por completo y entras directo.
+    # MODIFICACIÓN CRÍTICA JITSI: Pasamos las propiedades directamente en la inicialización de la URL de la API
+    # para forzar la omisión completa de la pantalla previa 'Prejoin' (Textos amarillos)
     codigo_api_jitsi = f"""
     <div id="jitsi-container" style="height: 485px; width: 100%; border: 1px solid #283143; border-radius: 4px; background-color: #171b26;"></div>
     
@@ -135,7 +172,7 @@ with col_video:
     <script>
         const domain = 'meet.jit.si';
         const options = {{
-            roomName: '{ID_SALA_EQUIPO}',
+            roomName: '{ID_SALA_EQUIPO}#config.prejoinPageEnabled=false&config.startWithVideoMuted=false&config.startWithAudioMuted=false',
             width: '100%',
             height: 485,
             parentNode: document.querySelector('#jitsi-container'),
@@ -145,7 +182,7 @@ with col_video:
             configOverwrite: {{ 
                 startWithVideoMuted: false,
                 startWithAudioMuted: false,
-                prejoinPageEnabled: false, // <-- ESTO ELIMINA LA PANTALLA ANTES DE ENTRAR
+                prejoinPageEnabled: false,
                 disableDeepLinking: true
             }},
             interfaceConfigOverwrite: {{
@@ -157,7 +194,6 @@ with col_video:
         
         const api = new JitsiMeetExternalAPI(domain, options);
         
-        // INTERCEPTOR DE SALIDA: Limpia la pantalla al colgar
         api.addEventListener('videoConferenceLeft', () => {{
             const container = document.querySelector('#jitsi-container');
             container.innerHTML = `
@@ -172,13 +208,5 @@ with col_video:
     </script>
     """
     
-    # CORRECCIÓN DE PERMISOS: Se añaden explícitamente "camera; microphone" al componente html
-    # para solucionar permanentemente el error de WebRTC en navegadores.
     st.components.v1.html(codigo_api_jitsi, height=490, scrolling=False)
     st.markdown(f"<span style='color:#8a94a6; font-size:12px;'>ID de la matriz activa: <code>{ID_SALA_EQUIPO}</code></span>", unsafe_allow_html=True)
-
-# ==========================================
-# 3. MOTOR DE AUTO-REFRESCO DE CHAT
-# ==========================================
-time.sleep(2)
-st.rerun()
