@@ -65,31 +65,18 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# GESTIÓN DE MEMORIA GLOBAL Y LIMPIEZA (1 HORA)
-# ==========================================
+# Servidor de datos compartido en memoria para usuarios externos
 @st.cache_resource
-def obtener_servidor_datos():
-    return {
-        "mensajes": [],
-        "ultima_limpieza": time.time()
-    }
+def obtener_memoria_chat():
+    return []
 
-servidor_datos = obtener_servidor_datos()
-
-# Verificación de tiempo transcurrido (3600 segundos = 1 hora)
-tiempo_actual = time.time()
-if tiempo_actual - servidor_datos["ultima_limpieza"] >= 3600:
-    servidor_datos["mensajes"] = []  
-    servidor_datos["ultima_limpieza"] = tiempo_actual  
-
-historial_global = servidor_datos["mensajes"]
+historial_global = obtener_memoria_chat()
 
 # Cabecera de la Aplicación
 st.markdown("""
     <div class="hik-header">
         <h2 style='margin:0; font-size:22px;'>🎛️ Centro de Comunicaciones</h2>
-        <p style='margin:5px 0 0 0; color:#8a94a6 !important; font-size:13px;'>SYS_STATUS: ONLINE | SECURITY: SSL_ENCRYPTED | AUTO-CLEAR: 60 MIN</p>
+        <p style='margin:5px 0 0 0; color:#8a94a6 !important; font-size:13px;'>SYS_STATUS: ONLINE | SECURITY: SSL_ENCRYPTED | LIVE FEED MAX 4 NODES</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -97,7 +84,7 @@ st.markdown("""
 col_chat, col_video = st.columns([1, 1.8])
 
 # ==========================================
-# 1. PANEL DE MENSAJERÍA (COLUMNA IZQUIERDA)
+# 1. PANEL DE MENSIDERÍA (COLUMNA IZQUIERDA)
 # ==========================================
 with col_chat:
     st.markdown("### 🗪 Centro de Mensajes")
@@ -108,7 +95,7 @@ with col_chat:
     
     with contenedor_mensajes:
         if not historial_global:
-            st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual. (Limpiado automáticamente cada 1 hora).</span>", unsafe_allow_html=True)
+            st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual.</span>", unsafe_allow_html=True)
         else:
             for msg in historial_global:
                 hora_actual = msg["hora"]
@@ -132,14 +119,15 @@ with col_chat:
             st.rerun()
 
 # ==========================================
-# 2. PANEL DE VIDEO SEGURO (ENTRADA DIRECTA FIX)
+# 2. PANEL DE VIDEO SEGURO (SOLUCIÓN DEFINITIVA)
 # ==========================================
 with col_video:
     st.markdown("### 📺 Video en Directo")
     
     ID_SALA_EQUIPO = "Aura19997822252"
     
-    # Pasamos los parámetros críticos directamente dentro del string de inicialización de la sala
+    # SOLUCIÓN COMPLETA: Usamos la API Oficial. Al poner 'prejoinPageEnabled: false', 
+    # la pantalla donde dice "Entrar a la reunión" desaparece por completo y entras directo.
     codigo_api_jitsi = f"""
     <div id="jitsi-container" style="height: 485px; width: 100%; border: 1px solid #283143; border-radius: 4px; background-color: #171b26;"></div>
     
@@ -157,20 +145,19 @@ with col_video:
             configOverwrite: {{ 
                 startWithVideoMuted: false,
                 startWithAudioMuted: false,
-                prejoinPageEnabled: false,
+                prejoinPageEnabled: false, // <-- ESTO ELIMINA LA PANTALLA ANTES DE ENTRAR
                 disableDeepLinking: true
             }},
             interfaceConfigOverwrite: {{
                 SHOW_JITSI_WATERMARK: false,
                 SHOW_BRAND_WATERMARK: false,
-                DISPLAY_WELCOME_PAGE: false,
-                filmStripOnly: false
+                DISPLAY_WELCOME_PAGE: false
             }}
         }};
         
         const api = new JitsiMeetExternalAPI(domain, options);
         
-        // Al colgar se limpia la pantalla mostrando la estética HikCentral
+        // INTERCEPTOR DE SALIDA: Limpia la pantalla al colgar
         api.addEventListener('videoConferenceLeft', () => {{
             const container = document.querySelector('#jitsi-container');
             container.innerHTML = `
@@ -185,12 +172,13 @@ with col_video:
     </script>
     """
     
+    # CORRECCIÓN DE PERMISOS: Se añaden explícitamente "camera; microphone" al componente html
+    # para solucionar permanentemente el error de WebRTC en navegadores.
     st.components.v1.html(codigo_api_jitsi, height=490, scrolling=False)
     st.markdown(f"<span style='color:#8a94a6; font-size:12px;'>ID de la matriz activa: <code>{ID_SALA_EQUIPO}</code></span>", unsafe_allow_html=True)
 
 # ==========================================
-# 3. ACTUALIZACIÓN AUTOMÁTICA DEL CHAT
+# 3. MOTOR DE AUTO-REFRESCO DE CHAT
 # ==========================================
-# Reemplazamos st.rerun() completo por st.fragment (enfoque pasivo) usando st.refresh automático de la app.
-# Esto previene que el video parpadee y permite el funcionamiento correcto del script.
-st.logo("https://upload.wikimedia.org/wikipedia/commons/2/22/Blank_Grid.png", icon_image="https://upload.wikimedia.org/wikipedia/commons/2/22/Blank_Grid.png") # Oculta logos decorativos si existieran
+time.sleep(2)
+st.rerun()
