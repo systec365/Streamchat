@@ -62,13 +62,6 @@ st.markdown("""
         button[data-testid="baseButton-secondaryFormSubmit"]:hover {
             background-color: #0056c7 !important;
         }
-        
-        /* Info boxes */
-        .stAlert {
-            background-color: #1c212c !important;
-            border: 1px solid #0070FF !important;
-            color: #e1e4ea !important;
-        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -126,38 +119,56 @@ with col_chat:
             st.rerun()
 
 # ==========================================
-# 2. PANEL DE VIDEO EN DIRECTO (COLUMNA DERECHA)
+# 2. PANEL DE VIDEO SEGURO (COLUMNA DERECHA)
 # ==========================================
 with col_video:
     st.markdown("### 📺 Video en Directo")
     
     ID_SALA_EQUIPO = "Aura19997822252"
     
-    # MODIFICACIÓN CRÍTICA: Añadimos parámetros ocultos para mitigar la pantalla final de Jitsi:
-    # 1. 'config.prejoinPageEnabled=false' -> Salta la sala de espera.
-    # 2. 'interfaceConfigOverwrite.SHOW_JITSI_WATERMARK=false' -> Elimina logos de agua.
-    # 3. 'interfaceConfigOverwrite.DISPLAY_WELCOME_PAGE=false' -> Bloquea la recarga de páginas promocionales al colgar.
-    URL_SALA_VIDEO = (
-        f"https://meet.jit.si/{ID_SALA_EQUIPO}"
-        f"#config.startWithVideoMuted=false"
-        f"&config.startWithAudioMuted=false"
-        f"&config.prejoinPageEnabled=false"
-        f"&interfaceConfigOverwrite.SHOW_JITSI_WATERMARK=false"
-        f"&interfaceConfigOverwrite.DISPLAY_WELCOME_PAGE=false"
-    )
+    # Inyección de la API JS oficial. Captura el evento 'videoConferenceLeft' (cuando cuelgas)
+    # y borra el contenedor de Jitsi reemplazándolo por un aviso oscuro integrado tipo HikCentral.
+    codigo_api_jitsi = f"""
+    <div id="jitsi-container" style="height: 485px; width: 100%; border: 1px solid #283143; border-radius: 4px; background-color: #171b26;"></div>
     
-    # Código del reproductor embebido que se ejecutará nativamente gracias al HTTPS
-    codigo_iframe = f"""
-    <iframe 
-        src="{URL_SALA_VIDEO}" 
-        width="100%" 
-        height="485px" 
-        allow="camera; microphone; fullscreen; speaker; display-capture" 
-        style="border: 1px solid #283143; border-radius: 4px; background-color: #171b26;">
-    </iframe>
+    <script src="https://meet.jit.si/external_api.js"></script>
+    <script>
+        const domain = 'meet.jit.si';
+        const options = {{
+            roomName: '{ID_SALA_EQUIPO}',
+            width: '100%',
+            height: 485,
+            parentNode: document.querySelector('#jitsi-container'),
+            configOverwrite: {{ 
+                startWithVideoMuted: false,
+                startWithAudioMuted: false,
+                prejoinPageEnabled: false
+            }},
+            interfaceConfigOverwrite: {{
+                SHOW_JITSI_WATERMARK: false,
+                SHOW_BRAND_WATERMARK: false,
+                DISPLAY_WELCOME_PAGE: false
+            }}
+        }};
+        
+        const api = new JitsiMeetExternalAPI(domain, options);
+        
+        // INTERCEPTOR DE SALIDA: Elimina la publicidad de Jitsi al colgar
+        api.addEventListener('videoConferenceLeft', () => {{
+            const container = document.querySelector('#jitsi-container');
+            container.innerHTML = `
+                <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; color: #8a94a6; font-family: sans-serif; background-color: #171b26; text-align: center; padding: 20px;">
+                    <div style="font-size: 50px; margin-bottom: 15px; color: #3b4861;">📴</div>
+                    <div style="font-size: 16px; font-weight: bold; color: #ffffff; margin-bottom: 5px;">LLAMADA FINALIZADA</div>
+                    <div style="font-size: 13px; color: #8a94a6;">Canal multimedia cerrado de forma segura por el operador.</div>
+                    <button onclick="window.location.reload();" style="margin-top: 20px; background-color: #0070FF; color: white; border: none; padding: 8px 16px; border-radius: 3px; cursor: pointer; font-weight: bold;">Reconectarse al canal</button>
+                </div>
+            `;
+        }});
+    </script>
     """
     
-    st.components.v1.html(codigo_iframe, height=490)
+    st.components.v1.html(codigo_api_jitsi, height=490)
     st.markdown(f"<span style='color:#8a94a6; font-size:12px;'>ID de la matriz activa: <code>{ID_SALA_EQUIPO}</code></span>", unsafe_allow_html=True)
 
 # ==========================================
