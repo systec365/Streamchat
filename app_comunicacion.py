@@ -132,8 +132,19 @@ with col_video:
     st.markdown("### 📺 Video en Directo")
     
     ID_SALA_EQUIPO = "Aura19997822252"
-    # Integramos la URL de Jitsi directamente en la UI mediante un iframe seguro con herencia WebRTC
-    URL_SALA_VIDEO = f"https://meet.jit.si/{ID_SALA_EQUIPO}#config.startWithVideoMuted=false&config.startWithAudioMuted=false&config.prejoinPageEnabled=false"
+    
+    # MODIFICACIÓN CRÍTICA: Añadimos parámetros ocultos para mitigar la pantalla final de Jitsi:
+    # 1. 'config.prejoinPageEnabled=false' -> Salta la sala de espera.
+    # 2. 'interfaceConfigOverwrite.SHOW_JITSI_WATERMARK=false' -> Elimina logos de agua.
+    # 3. 'interfaceConfigOverwrite.DISPLAY_WELCOME_PAGE=false' -> Bloquea la recarga de páginas promocionales al colgar.
+    URL_SALA_VIDEO = (
+        f"https://meet.jit.si/{ID_SALA_EQUIPO}"
+        f"#config.startWithVideoMuted=false"
+        f"&config.startWithAudioMuted=false"
+        f"&config.prejoinPageEnabled=false"
+        f"&interfaceConfigOverwrite.SHOW_JITSI_WATERMARK=false"
+        f"&interfaceConfigOverwrite.DISPLAY_WELCOME_PAGE=false"
+    )
     
     # Código del reproductor embebido que se ejecutará nativamente gracias al HTTPS
     codigo_iframe = f"""
