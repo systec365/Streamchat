@@ -114,46 +114,36 @@ with col_chat:
     # Fragmento aislado que corre de fondo cada 2 segundos sin afectar al video
     @st.fragment(run_every=2)
     def renderizar_chat_reactivo():
-        # Envolvemos el contenedor en un div HTML personalizado con ID estático para rastrearlo mediante JS
-        st.markdown('<div id="hik-chat-viewport">', unsafe_allow_html=True)
         contenedor_mensajes = st.container(height=420)
         
         with contenedor_mensajes:
             if not historial_global:
                 st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual.</span>", unsafe_allow_html=True)
             else:
-                for i, msg in enumerate(historial_global):
+                for msg in historial_global:
                     hora_actual = msg["hora"]
-                    id_attr = f'id="ultimo_msg_nodo"' if i == len(historial_global) - 1 else ""
                     
                     if msg["remitente"] == usuario:
-                        st.markdown(f"<div {id_attr} style='margin-bottom:4px;'><b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='margin-bottom:4px;'><b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
                     else:
-                        st.markdown(f"<div {id_attr} style='margin-bottom:4px;'><b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='margin-bottom:4px;'><b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
                     st.markdown("<hr style='margin:8px 0; border:0; border-top:1px solid #283143;'>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+            
+            # ELEMENTO DE FOCO AUTOMÁTICO NATURAL: Forzamos un contenedor vacío al final.
+            # Al actualizarse la vista, Streamlit se desliza automáticamente hasta aquí.
+            st.empty()
 
-        # DETECTOR GLOBAL DE CAMBIOS: Ejecuta sonido y realiza foco si el contador de mensajes cambia
+        # DETECTOR DE NUEVOS MENSAJES (Para emitir el sonido)
         if len(historial_global) > st.session_state["mensajes_vistos"]:
             st.session_state["mensajes_vistos"] = len(historial_global)
             
-            # Inyección limpia y sin restricciones por parte del navegador usando la API Audio web
-            st.components.v1.html("""
-                <script>
-                    // Sonido nítido industrial tipo alerta de servidor
-                    var audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2357/2357-84.wav");
-                    audio.volume = 0.6;
-                    audio.play().catch(function(error) { console.log("Audio prevenido por el navegador hasta interacción."); });
-                    
-                    // Buscamos el contenedor del viewport del chat padre y forzamos el scroll inferior absoluto
-                    setTimeout(() => {
-                        const elemento = window.parent.document.getElementById('ultimo_msg_nodo');
-                        if(elemento) {
-                            elemento.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                        }
-                    }, 50);
-                </script>
-            """, height=0, width=0)
+            # Usamos un reproductor HTML nativo con una cadena de audio persistente libre de bloqueos CORS
+            st.markdown("""
+                <iframe src="https://assets.mixkit.co/active_storage/sfx/2357/2357-84.wav" allow="autoplay" style="display:none"></iframe>
+                <audio autoplay style="display:none;">
+                    <source src="https://assets.mixkit.co/active_storage/sfx/2357/2357-84.wav" type="audio/wav">
+                </audio>
+            """, unsafe_allow_html=True)
 
         with st.form("formulario_envio", clear_on_submit=True):
             nuevo_mensaje = st.text_input("Ingresar mensaje...", placeholder="Escribir mensaje...")
@@ -166,6 +156,7 @@ with col_chat:
                     "texto": nuevo_mensaje,
                     "hora": ahora
                 })
+                # Sincronizamos los vistos para que al escribir tú mismo no se duplique o trabe el sonido
                 st.session_state["mensajes_vistos"] = len(historial_global)
                 st.rerun()
 
