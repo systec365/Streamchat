@@ -62,34 +62,15 @@ st.markdown("""
         button[data-testid="baseButton-secondaryFormSubmit"]:hover {
             background-color: #0056c7 !important;
         }
-        
-        /* Forzar ocultamiento del scrollbar horizontal molesto */
-        iframe {
-            overflow: hidden !important;
-        }
     </style>
 """, unsafe_allow_html=True)
 
 # Servidor de datos compartido en memoria para usuarios externos
 @st.cache_resource
 def obtener_memoria_chat():
-    return {
-        "mensajes": [],
-        "ultima_limpieza": time.time()
-    }
+    return []
 
-servidor_datos = obtener_memoria_chat()
-
-# Verificación de tiempo transcurrido para borrado automático (1 hora)
-if time.time() - servidor_datos["ultima_limpieza"] >= 3600:
-    servidor_datos["mensajes"] = []  
-    servidor_datos["ultima_limpieza"] = time.time()  
-
-historial_global = servidor_datos["mensajes"]
-
-# Control de estado de mensajes locales para disparar la alerta sonora
-if "mensajes_vistos" not in st.session_state:
-    st.session_state["mensajes_vistos"] = len(historial_global)
+historial_global = obtener_memoria_chat()
 
 # Cabecera de la Aplicación
 st.markdown("""
@@ -103,7 +84,7 @@ st.markdown("""
 col_chat, col_video = st.columns([1, 1.8])
 
 # ==========================================
-# 1. PANEL DE MENSAJERÍA (COLUMNA IZQUIERDA)
+# 1. PANEL DE MENSIDERÍA (COLUMNA IZQUIERDA)
 # ==========================================
 with col_chat:
     st.markdown("### 🗪 Centro de Mensajes")
@@ -116,42 +97,13 @@ with col_chat:
         if not historial_global:
             st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual.</span>", unsafe_allow_html=True)
         else:
-            for i, msg in enumerate(historial_global):
+            for msg in historial_global:
                 hora_actual = msg["hora"]
-                # Le asignamos un ID dinámico únicamente al último mensaje renderizado del DOM
-                id_attr = f'id="ultimo_msg_target"' if i == len(historial_global) - 1 else ""
-                
                 if msg["remitente"] == usuario:
-                    st.markdown(f"<div {id_attr} style='margin-bottom:4px;'><b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}", unsafe_allow_html=True)
                 else:
-                    st.markdown(f"<div {id_attr} style='margin-bottom:4px;'><b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}", unsafe_allow_html=True)
                 st.markdown("<hr style='margin:8px 0; border:0; border-top:1px solid #283143;'>", unsafe_allow_html=True)
-
-    # Lógica de Notificación de Audio y Foco Forzado por JS en Ventana Principal
-    if len(historial_global) > 0:
-        ejecutar_sonido = "false"
-        if len(historial_global) > st.session_state["mensajes_vistos"]:
-            st.session_state["mensajes_vistos"] = len(historial_global)
-            ejecutar_sonido = "true"
-            
-        st.components.v1.html(f"""
-            <script>
-                setTimeout(() => {{
-                    // 1. Forzar foco y scroll automático al último mensaje (Tú o cualquiera)
-                    const el = window.parent.document.getElementById('ultimo_msg_target');
-                    if (el) {{
-                        el.scrollIntoView({{ behavior: 'smooth', block: 'end' }});
-                    }}
-                    
-                    // 2. Ejecución controlada de audio para omitir restricciones de navegador
-                    if ({ejecutar_sonido} === true) {{
-                        var audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2357/2357-84.wav");
-                        audio.volume = 0.6;
-                        audio.play().catch(function(e) {{ console.log("Audio en espera de interacción"); }});
-                    }}
-                }}, 100);
-            </script>
-        """, height=0, width=0)
 
     with st.form("formulario_envio", clear_on_submit=True):
         nuevo_mensaje = st.text_input("Ingresar mensaje...", placeholder="Escribir mensaje...")
@@ -164,7 +116,6 @@ with col_chat:
                 "texto": nuevo_mensaje,
                 "hora": ahora
             })
-            st.session_state["mensajes_vistos"] = len(historial_global)
             st.rerun()
 
 # ==========================================
@@ -175,8 +126,8 @@ with col_video:
     
     ID_SALA_EQUIPO = "Aura19997822252"
     
-    # Inyección limpia original. Captura el evento 'videoConferenceLeft' (cuando cuelgas)
-    # y destruye el contenedor de Jitsi reemplazándolo por el aviso sin logos de publicidad.
+    # Inyección de la API JS oficial. Captura el evento 'videoConferenceLeft' (cuando cuelgas)
+    # y borra el contenedor de Jitsi reemplazándolo por un aviso oscuro integrado tipo HikCentral.
     codigo_api_jitsi = f"""
     <div id="jitsi-container" style="height: 485px; width: 100%; border: 1px solid #283143; border-radius: 4px; background-color: #171b26;"></div>
     
@@ -184,15 +135,14 @@ with col_video:
     <script>
         const domain = 'meet.jit.si';
         const options = {{
-            roomName: '{ID_SALA_EQUIPO}#config.prejoinPageEnabled=false&config.startWithVideoMuted=false&config.startWithAudioMuted=false',
+            roomName: '{ID_SALA_EQUIPO}',
             width: '100%',
             height: 485,
             parentNode: document.querySelector('#jitsi-container'),
             configOverwrite: {{ 
                 startWithVideoMuted: false,
                 startWithAudioMuted: false,
-                prejoinPageEnabled: false,
-                disableDeepLinking: true
+                prejoinPageEnabled: false
             }},
             interfaceConfigOverwrite: {{
                 SHOW_JITSI_WATERMARK: false,
@@ -203,7 +153,7 @@ with col_video:
         
         const api = new JitsiMeetExternalAPI(domain, options);
         
-        // INTERCEPTOR DE SALIDA: Elimina la publicidad e imágenes de Jitsi al colgar
+        // INTERCEPTOR DE SALIDA: Elimina la publicidad de Jitsi al colgar
         api.addEventListener('videoConferenceLeft', () => {{
             const container = document.querySelector('#jitsi-container');
             container.innerHTML = `
