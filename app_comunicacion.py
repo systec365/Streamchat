@@ -1,7 +1,6 @@
 import streamlit as st
 import datetime
 import time
-import base64
 
 # Configuración de la interfaz estilo centro de control HikCentral
 st.set_page_config(page_title="HikCentral VMS Hub", layout="wide")
@@ -25,7 +24,7 @@ st.markdown("""
             border-left: 4px solid #0070FF;
             margin-bottom: 20px;
         }
-        /* Contenedor del Chat nativo modificado para HikCentral */
+        /* Ajuste de estilo para el chat nativo */
         div[data-testid="stChatMessageContainer"] {
             background-color: #171b26 !important;
             border: 1px solid #283143 !important;
@@ -37,7 +36,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Sonido "Ping" de Notificación Corto en Base64 para evitar bloqueos del navegador
+# Sonido "Ping" de Notificación Corto en Base64 para saltar políticas estrictas de autoplay
 AUDIO_BASE64 = "UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="
 
 def reproducir_sonido_js():
@@ -45,7 +44,7 @@ def reproducir_sonido_js():
         <script>
             var audio = new Audio("data:audio/wav;base64,{AUDIO_BASE64}");
             audio.volume = 0.7;
-            audio.play().catch(function(e){{ console.log("Audio retenido"); }});
+            audio.play().catch(function(e){{ console.log("Audio retenido por el navegador"); }});
         </script>
     """, height=0, width=0)
 
@@ -89,7 +88,6 @@ with col_chat:
     
     @st.fragment(run_every=2)
     def renderizar_chat_reactivo():
-        # Usamos la caja nativa de historial con scroll y foco integrados por Streamlit
         with st.container(height=420):
             if not historial_global:
                 st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual.</span>", unsafe_allow_html=True)
@@ -105,7 +103,7 @@ with col_chat:
             st.session_state["mensajes_vistos"] = len(historial_global)
             reproducir_sonido_js()
 
-        # Entrada de chat nativa (Hace scroll al fondo automáticamente al enviar o recibir)
+        # Entrada de chat con enfoque nativo automatizado
         nuevo_mensaje = st.chat_input("Escribir mensaje...")
         if nuevo_mensaje:
             ahora = datetime.datetime.now().strftime("%H:%M:%S")
@@ -121,7 +119,7 @@ with col_chat:
     renderizar_chat_reactivo()
 
 # ==========================================
-# 2. PANEL DE VIDEO SEGURO (ESTABLE Y FIJO)
+# 2. PANEL DE VIDEO SEGURO (MANTENIENDO REGLAS DE LOGOS OCULTOS)
 # ==========================================
 with col_video:
     st.markdown("### 📺 Video en Directo")
@@ -151,7 +149,8 @@ with col_video:
             interfaceConfigOverwrite: {{
                 SHOW_JITSI_WATERMARK: false,
                 SHOW_BRAND_WATERMARK: false,
-                DISPLAY_WELCOME_PAGE: false
+                DISPLAY_WELCOME_PAGE: false,
+                JITSI_WATERMARK_LINK: ''
             }}
         }};
         
