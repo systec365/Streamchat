@@ -82,7 +82,7 @@ historial_global = obtener_memoria_chat()
 # Cabecera de la Aplicación
 st.markdown("""
     <div class="hik-header">
-        <h2 style='margin:0; font-size:22px;'>🎛️ HikCentral Professional - Communication & Video Matrix</h2>
+        <h2 style='margin:0; font-size:22px;'>🎛️ Centro de Comunicaciones</h2>
         <p style='margin:5px 0 0 0; color:#8a94a6 !important; font-size:13px;'>SYS_STATUS: ONLINE | SECURITY: SSL_ENCRYPTED | LIVE FEED MAX 4 NODES</p>
     </div>
 """, unsafe_allow_html=True)
@@ -113,7 +113,7 @@ with col_chat:
                 st.markdown("<hr style='margin:8px 0; border:0; border-top:1px solid #283143;'>", unsafe_allow_html=True)
 
     with st.form("formulario_envio", clear_on_submit=True):
-        nuevo_mensaje = st.text_input("Ingresar mensaje...", placeholder="Escribir comando o notificación...")
+        nuevo_mensaje = st.text_input("Ingresar mensaje...", placeholder="Escribir mensaje...")
         boton_enviar = st.form_submit_button("Enviar Mensaje")
         
         if boton_enviar and nuevo_mensaje.strip() != "":
@@ -129,7 +129,7 @@ with col_chat:
 # 2. PANEL DE VIDEO EN DIRECTO (COLUMNA DERECHA)
 # ==========================================
 with col_video:
-    st.markdown("### 📺 Matriz de Video en Directo")
+    st.markdown("### 📺 Video en Directo")
     
     ID_SALA_EQUIPO = "SalaHikCentralPro777"
     # Integramos la URL de Jitsi directamente en la UI mediante un iframe seguro con herencia WebRTC
