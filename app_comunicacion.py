@@ -131,7 +131,7 @@ with col_chat:
 with col_video:
     st.markdown("### 📺 Video en Directo")
     
-    ID_SALA_EQUIPO = "SalaHikCentralPro777"
+    ID_SALA_EQUIPO = "Aura19997822252"
     # Integramos la URL de Jitsi directamente en la UI mediante un iframe seguro con herencia WebRTC
     URL_SALA_VIDEO = f"https://meet.jit.si/{ID_SALA_EQUIPO}#config.startWithVideoMuted=false&config.startWithAudioMuted=false&config.prejoinPageEnabled=false"
     
