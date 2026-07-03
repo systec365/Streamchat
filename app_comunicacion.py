@@ -1,6 +1,7 @@
 import streamlit as st
 import datetime
 import time
+import base64
 
 # Configuración de la interfaz estilo centro de control HikCentral
 st.set_page_config(page_title="HikCentral VMS Hub", layout="wide")
@@ -8,20 +9,15 @@ st.set_page_config(page_title="HikCentral VMS Hub", layout="wide")
 # Estilos CSS - Paleta Oficial HikCentral Professional
 st.markdown("""
     <style>
-        /* Fondo gris oscuro industrial y fuentes limpias */
         .stApp {
             background-color: #11141a !important;
             color: #e1e4ea !important;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
         }
-        
-        /* Títulos e indicadores */
         h1, h2, h3, h4, label, p, span {
             color: #ffffff !important;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
         }
-        
-        /* Cabecera estilo barra de herramientas HikCentral */
         .hik-header {
             background-color: #1c212c;
             padding: 15px;
@@ -29,46 +25,29 @@ st.markdown("""
             border-left: 4px solid #0070FF;
             margin-bottom: 20px;
         }
-        
-        /* Contenedores de cámaras y chat (Paneles VMS) */
-        .stContainer, div[data-testid="stForm"] {
+        /* Contenedor del Chat nativo modificado para HikCentral */
+        div[data-testid="stChatMessageContainer"] {
             background-color: #171b26 !important;
             border: 1px solid #283143 !important;
             border-radius: 4px !important;
-            padding: 12px !important;
         }
-        
-        /* Cajas de texto e inputs */
-        input[type="text"] {
-            background-color: #1f2533 !important;
-            color: #ffffff !important;
-            border: 1px solid #3b4861 !important;
-            border-radius: 3px !important;
-        }
-        input[type="text"]:focus {
-            border-color: #0070FF !important;
-        }
-        
-        /* Botones estilo HikCentral (Azul comando) */
-        button[data-testid="baseButton-secondaryFormSubmit"] {
-            background-color: #0070FF !important;
-            color: #ffffff !important;
-            border: none !important;
-            border-radius: 3px !important;
-            font-weight: 600 !important;
-            width: 100% !important;
-            transition: background-color 0.2s ease;
-        }
-        button[data-testid="baseButton-secondaryFormSubmit"]:hover {
-            background-color: #0056c7 !important;
-        }
-        
-        /* Forzar ocultamiento del scrollbar horizontal molesto */
         iframe {
             overflow: hidden !important;
         }
     </style>
 """, unsafe_allow_html=True)
+
+# Sonido "Ping" de Notificación Corto en Base64 para evitar bloqueos del navegador
+AUDIO_BASE64 = "UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA=="
+
+def reproducir_sonido_js():
+    st.components.v1.html(f"""
+        <script>
+            var audio = new Audio("data:audio/wav;base64,{AUDIO_BASE64}");
+            audio.volume = 0.7;
+            audio.play().catch(function(e){{ console.log("Audio retenido"); }});
+        </script>
+    """, height=0, width=0)
 
 # ==========================================
 # GESTIÓN DE MEMORIA GLOBAL Y LIMPIEZA HORARIA
@@ -82,14 +61,12 @@ def obtener_servidor_datos():
 
 servidor_datos = obtener_servidor_datos()
 
-# Verificación de tiempo transcurrido para borrado (1 hora)
 if time.time() - servidor_datos["ultima_limpieza"] >= 3600:
     servidor_datos["mensajes"] = []  
     servidor_datos["ultima_limpieza"] = time.time()  
 
 historial_global = servidor_datos["mensajes"]
 
-# Control de notificaciones en el estado de la sesión local
 if "mensajes_vistos" not in st.session_state:
     st.session_state["mensajes_vistos"] = len(historial_global)
 
@@ -101,66 +78,46 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# Distribución de pantalla (Panel de control: 35% Chat / 65% Matriz de Video Directa)
 col_chat, col_video = st.columns([1, 1.8])
 
 # ==========================================
-# 1. PANEL DE MENSAJERÍA REAL-TIME (FRAGMENTADO)
+# 1. PANEL DE MENSAJERÍA REAL-TIME (NATIVO AUTOMÁTICO)
 # ==========================================
 with col_chat:
     st.markdown("### 🗪 Centro de Mensajes")
     usuario = st.text_input("Operador:", value="Operador_1", key="alias_usuario")
     
-    # Fragmento aislado que corre de fondo cada 2 segundos sin afectar al video
     @st.fragment(run_every=2)
     def renderizar_chat_reactivo():
-        contenedor_mensajes = st.container(height=420)
-        
-        with contenedor_mensajes:
+        # Usamos la caja nativa de historial con scroll y foco integrados por Streamlit
+        with st.container(height=420):
             if not historial_global:
                 st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual.</span>", unsafe_allow_html=True)
             else:
                 for msg in historial_global:
-                    hora_actual = msg["hora"]
-                    
-                    if msg["remitente"] == usuario:
-                        st.markdown(f"<div style='margin-bottom:4px;'><b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
-                    else:
-                        st.markdown(f"<div style='margin-bottom:4px;'><b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
-                    st.markdown("<hr style='margin:8px 0; border:0; border-top:1px solid #283143;'>", unsafe_allow_html=True)
-            
-            # ELEMENTO DE FOCO AUTOMÁTICO NATURAL: Forzamos un contenedor vacío al final.
-            # Al actualizarse la vista, Streamlit se desliza automáticamente hasta aquí.
-            st.empty()
+                    avatar = "user" if msg["remitente"] == usuario else "assistant"
+                    with st.chat_message(avatar):
+                        st.markdown(f"<span style='color:#8a94a6; font-size:11px;'>{msg['hora']} - <b>{msg['remitente']}</b></span>", unsafe_allow_html=True)
+                        st.write(msg['texto'])
 
-        # DETECTOR DE NUEVOS MENSAJES (Para emitir el sonido)
+        # Comprobación si ingresaron nuevos mensajes de otros operadores
         if len(historial_global) > st.session_state["mensajes_vistos"]:
             st.session_state["mensajes_vistos"] = len(historial_global)
-            
-            # Usamos un reproductor HTML nativo con una cadena de audio persistente libre de bloqueos CORS
-            st.markdown("""
-                <iframe src="https://assets.mixkit.co/active_storage/sfx/2357/2357-84.wav" allow="autoplay" style="display:none"></iframe>
-                <audio autoplay style="display:none;">
-                    <source src="https://assets.mixkit.co/active_storage/sfx/2357/2357-84.wav" type="audio/wav">
-                </audio>
-            """, unsafe_allow_html=True)
+            reproducir_sonido_js()
 
-        with st.form("formulario_envio", clear_on_submit=True):
-            nuevo_mensaje = st.text_input("Ingresar mensaje...", placeholder="Escribir mensaje...")
-            boton_enviar = st.form_submit_button("Enviar Mensaje")
-            
-            if boton_enviar and nuevo_mensaje.strip() != "":
-                ahora = datetime.datetime.now().strftime("%H:%M:%S")
-                historial_global.append({
-                    "remitente": usuario,
-                    "texto": nuevo_mensaje,
-                    "hora": ahora
-                })
-                # Sincronizamos los vistos para que al escribir tú mismo no se duplique o trabe el sonido
-                st.session_state["mensajes_vistos"] = len(historial_global)
-                st.rerun()
+        # Entrada de chat nativa (Hace scroll al fondo automáticamente al enviar o recibir)
+        nuevo_mensaje = st.chat_input("Escribir mensaje...")
+        if nuevo_mensaje:
+            ahora = datetime.datetime.now().strftime("%H:%M:%S")
+            historial_global.append({
+                "remitente": usuario,
+                "texto": nuevo_mensaje,
+                "hora": ahora
+            })
+            st.session_state["mensajes_vistos"] = len(historial_global)
+            reproducir_sonido_js()
+            st.rerun()
 
-    # Lanzamos el componente reactivo
     renderizar_chat_reactivo()
 
 # ==========================================
