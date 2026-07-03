@@ -154,18 +154,24 @@ with col_video:
             }}
         }};
         
-        const api = new JitsiMeetExternalAPI(domain, options);
+        let api = new JitsiMeetExternalAPI(domain, options);
         
         api.addEventListener('videoConferenceLeft', () => {{
+            // 1. Destruimos por completo la instancia activa de Jitsi para limpiar recursos e imágenes basura
+            api.dispose();
+            
+            // 2. Redibujamos la interfaz limpia sobre el contenedor
             const container = document.querySelector('#jitsi-container');
-            container.innerHTML = `
-                <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; color: #8a94a6; font-family: sans-serif; background-color: #171b26; text-align: center; padding: 20px;">
-                    <div style="font-size: 50px; margin-bottom: 15px; color: #3b4861;">📴</div>
-                    <div style="font-size: 16px; font-weight: bold; color: #ffffff; margin-bottom: 5px;">LLAMADA FINALIZADA</div>
-                    <div style="font-size: 13px; color: #8a94a6;">Canal de comunicación multimedia cerrado.</div>
-                    <button onclick="window.location.reload();" style="margin-top: 20px; background-color: #0070FF; color: white; border: none; padding: 8px 16px; border-radius: 3px; cursor: pointer; font-weight: bold;">Reconectar Matriz</button>
-                </div>
-            `;
+            if (container) {{
+                container.innerHTML = `
+                    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; color: #8a94a6; font-family: sans-serif; background-color: #171b26; text-align: center; padding: 20px;">
+                        <div style="font-size: 50px; margin-bottom: 15px; color: #3b4861;">📴</div>
+                        <div style="font-size: 16px; font-weight: bold; color: #ffffff; margin-bottom: 5px;">LLAMADA FINALIZADA</div>
+                        <div style="font-size: 13px; color: #8a94a6;">Canal de comunicación multimedia cerrado.</div>
+                        <button onclick="window.location.reload();" style="margin-top: 20px; background-color: #0070FF; color: white; border: none; padding: 8px 16px; border-radius: 3px; cursor: pointer; font-weight: bold;">Reconectar Matriz</button>
+                    </div>
+                `;
+            }}
         }});
     </script>
     """
