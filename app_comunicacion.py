@@ -72,6 +72,10 @@ def obtener_memoria_chat():
 
 historial_global = obtener_memoria_chat()
 
+# Control de estado interno para detectar nuevos mensajes y lanzar la alerta sonora
+if "mensajes_leidos" not in st.session_state:
+    st.session_state["mensajes_leidos"] = len(historial_global)
+
 # Cabecera de la Aplicación
 st.markdown("""
     <div class="hik-header">
@@ -84,7 +88,7 @@ st.markdown("""
 col_chat, col_video = st.columns([1, 1.8])
 
 # ==========================================
-# 1. PANEL DE MENSIDERÍA (COLUMNA IZQUIERDA)
+# 1. PANEL DE MENSAJERÍA (COLUMNA IZQUIERDA)
 # ==========================================
 with col_chat:
     st.markdown("### 🗪 Centro de Mensajes")
@@ -97,13 +101,41 @@ with col_chat:
         if not historial_global:
             st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual.</span>", unsafe_allow_html=True)
         else:
-            for msg in historial_global:
+            for i, msg in enumerate(historial_global):
                 hora_actual = msg["hora"]
+                # Colocamos un ID HTML únicamente al último mensaje de la lista
+                id_ultimo = 'id="ultimo_msg"' if i == len(historial_global) - 1 else ""
+                
                 if msg["remitente"] == usuario:
-                    st.markdown(f"<b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}", unsafe_allow_html=True)
+                    st.markdown(f"<div {id_ultimo} style='margin-bottom: 8px;'><b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
                 else:
-                    st.markdown(f"<b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}", unsafe_allow_html=True)
+                    st.markdown(f"<div {id_ultimo} style='margin-bottom: 8px;'><b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
                 st.markdown("<hr style='margin:8px 0; border:0; border-top:1px solid #283143;'>", unsafe_allow_html=True)
+
+    # REPRODUCTOR DE AUDIO Y CONTROL DE ENFOQUE AUTOMÁTICO (JS)
+    reproducir_alerta = "false"
+    if len(historial_global) > st.session_state["mensajes_leidos"]:
+        st.session_state["mensajes_leidos"] = len(historial_global)
+        reproducir_alerta = "true"
+
+    st.components.v1.html(f"""
+        <script>
+            // Forzar el scroll inferior buscando el elemento ID en la ventana principal de Streamlit
+            setTimeout(() => {{
+                const chatContainer = window.parent.document.getElementById('ultimo_msg');
+                if (chatContainer) {{
+                    chatContainer.scrollIntoView({{ behavior: 'smooth', block: 'end' }});
+                }}
+            }}, 50);
+
+            // Alerta sonora industrial sin bloqueos del navegador
+            if ({reproducir_alerta} === true) {{
+                var audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2357/2357-84.wav");
+                audio.volume = 0.6;
+                audio.play().catch(function(error) {{ console.log("Audio retenido hasta interacción"); }});
+            }}
+        </script>
+    """, height=0, width=0)
 
     with st.form("formulario_envio", clear_on_submit=True):
         nuevo_mensaje = st.text_input("Ingresar mensaje...", placeholder="Escribir mensaje...")
@@ -116,6 +148,8 @@ with col_chat:
                 "texto": nuevo_mensaje,
                 "hora": ahora
             })
+            # Actualizamos el estado para tu propio mensaje
+            st.session_state["mensajes_leidos"] = len(historial_global)
             st.rerun()
 
 # ==========================================
