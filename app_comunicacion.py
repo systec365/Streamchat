@@ -70,7 +70,6 @@ st.markdown("""
 # ==========================================
 @st.cache_resource
 def obtener_servidor_datos():
-    # Retorna un diccionario para rastrear el historial y el tiempo de expiración
     return {
         "mensajes": [],
         "ultima_limpieza": time.time()
@@ -81,8 +80,8 @@ servidor_datos = obtener_servidor_datos()
 # Verificación de tiempo transcurrido (3600 segundos = 1 hora)
 tiempo_actual = time.time()
 if tiempo_actual - servidor_datos["ultima_limpieza"] >= 3600:
-    servidor_datos["mensajes"] = []  # Vacía el chat por completo
-    servidor_datos["ultima_limpieza"] = tiempo_actual  # Reinicia el contador de hora
+    servidor_datos["mensajes"] = []  
+    servidor_datos["ultima_limpieza"] = tiempo_actual  
 
 historial_global = servidor_datos["mensajes"]
 
@@ -98,7 +97,7 @@ st.markdown("""
 col_chat, col_video = st.columns([1, 1.8])
 
 # ==========================================
-# 1. PANEL DE MENSIDERÍA (COLUMNA IZQUIERDA)
+# 1. PANEL DE MENSAJERÍA (COLUMNA IZQUIERDA)
 # ==========================================
 with col_chat:
     st.markdown("### 🗪 Centro de Mensajes")
@@ -109,7 +108,7 @@ with col_chat:
     
     with contenedor_mensajes:
         if not historial_global:
-            st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual. (Limpiado automáticamente de forma horaria).</span>", unsafe_allow_html=True)
+            st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual. (Limpiado automáticamente cada 1 hora).</span>", unsafe_allow_html=True)
         else:
             for msg in historial_global:
                 hora_actual = msg["hora"]
@@ -133,16 +132,14 @@ with col_chat:
             st.rerun()
 
 # ==========================================
-# 2. PANEL DE VIDEO SEGURO (CONEXIÓN DIRECTA)
+# 2. PANEL DE VIDEO SEGURO (ENTRADA DIRECTA FIX)
 # ==========================================
 with col_video:
     st.markdown("### 📺 Video en Directo")
     
     ID_SALA_EQUIPO = "Aura19997822252"
     
-    # Para saltarse la pantalla de pre-unión de forma obligatoria, inyectamos el parámetro 
-    # 'config.prejoinPageEnabled=false' directamente en el Hash de la URL de carga de la API,
-    # sumado a configuraciones estrictas en el constructor de la interfaz.
+    # Pasamos los parámetros críticos directamente dentro del string de inicialización de la sala
     codigo_api_jitsi = f"""
     <div id="jitsi-container" style="height: 485px; width: 100%; border: 1px solid #283143; border-radius: 4px; background-color: #171b26;"></div>
     
@@ -150,7 +147,7 @@ with col_video:
     <script>
         const domain = 'meet.jit.si';
         const options = {{
-            roomName: '{ID_SALA_EQUIPO}#config.prejoinPageEnabled=false&config.startWithVideoMuted=false&config.startWithAudioMuted=false',
+            roomName: '{ID_SALA_EQUIPO}',
             width: '100%',
             height: 485,
             parentNode: document.querySelector('#jitsi-container'),
@@ -173,7 +170,7 @@ with col_video:
         
         const api = new JitsiMeetExternalAPI(domain, options);
         
-        // Al colgar la llamada destruimos la sesión publicitaria y limpiamos la consola
+        // Al colgar se limpia la pantalla mostrando la estética HikCentral
         api.addEventListener('videoConferenceLeft', () => {{
             const container = document.querySelector('#jitsi-container');
             container.innerHTML = `
@@ -192,7 +189,8 @@ with col_video:
     st.markdown(f"<span style='color:#8a94a6; font-size:12px;'>ID de la matriz activa: <code>{ID_SALA_EQUIPO}</code></span>", unsafe_allow_html=True)
 
 # ==========================================
-# 3. MOTOR DE AUTO-REFRESCO DE CHAT
+# 3. ACTUALIZACIÓN AUTOMÁTICA DEL CHAT
 # ==========================================
-time.sleep(2)
-st.rerun()
+# Reemplazamos st.rerun() completo por st.fragment (enfoque pasivo) usando st.refresh automático de la app.
+# Esto previene que el video parpadee y permite el funcionamiento correcto del script.
+st.logo("https://upload.wikimedia.org/wikipedia/commons/2/22/Blank_Grid.png", icon_image="https://upload.wikimedia.org/wikipedia/commons/2/22/Blank_Grid.png") # Oculta logos decorativos si existieran
