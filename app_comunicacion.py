@@ -70,14 +70,25 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Servidor de datos compartido en memoria para usuarios externos
+# ==========================================
+# GESTIÓN DE MEMORIA GLOBAL Y LIMPIEZA HOARIA
+# ==========================================
 @st.cache_resource
-def obtener_memoria_chat():
-    return []
+def obtener_servidor_datos():
+    return {
+        "mensajes": [],
+        "ultima_limpieza": time.time()
+    }
 
-historial_global = obtener_memoria_chat()
+servidor_datos = obtener_servidor_datos()
 
-# Inicializador de banderas de notificación por sesión de usuario
+# Verificación de tiempo transcurrido para borrado (1 hora)
+if time.time() - servidor_datos["ultima_limpieza"] >= 3600:
+    servidor_datos["mensajes"] = []  
+    servidor_datos["ultima_limpieza"] = time.time()  
+
+historial_global = servidor_datos["mensajes"]
+
 if "mensajes_vistos" not in st.session_state:
     st.session_state["mensajes_vistos"] = len(historial_global)
 
@@ -85,7 +96,7 @@ if "mensajes_vistos" not in st.session_state:
 st.markdown("""
     <div class="hik-header">
         <h2 style='margin:0; font-size:22px;'>🎛️ Centro de Comunicaciones</h2>
-        <p style='margin:5px 0 0 0; color:#8a94a6 !important; font-size:13px;'>SYS_STATUS: ONLINE | SECURITY: SSL_ENCRYPTED | LIVE FEED MAX 4 NODES</p>
+        <p style='margin:5px 0 0 0; color:#8a94a6 !important; font-size:13px;'>SYS_STATUS: ONLINE | SECURITY: SSL_ENCRYPTED | AUTO-CLEAR: 60 MIN</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -93,78 +104,77 @@ st.markdown("""
 col_chat, col_video = st.columns([1, 1.8])
 
 # ==========================================
-# 1. PANEL DE MENSAJERÍA (COLUMNA IZQUIERDA)
+# 1. PANEL DE MENSAJERÍA REAL-TIME (FRAGMENTADO)
 # ==========================================
 with col_chat:
     st.markdown("### 🗪 Centro de Mensajes")
-    
     usuario = st.text_input("Operador:", value="Operador_1", key="alias_usuario")
     
-    # Contenedor dinámico de mensajes
-    contenedor_mensajes = st.container(height=420)
-    
-    with contenedor_mensajes:
-        if not historial_global:
-            st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual.</span>", unsafe_allow_html=True)
-        else:
-            for i, msg in enumerate(historial_global):
-                hora_actual = msg["hora"]
-                # Añadimos un ID incremental único a cada mensaje para que JS pueda hacer scroll-focus al último elemento
-                id_attr = f'id="ultimo_msg"' if i == len(historial_global) - 1 else ""
+    # El decorador st.fragment permite refrescar esta función cada 3 segundos de forma aislada
+    @st.fragment(run_every=3)
+    def renderizar_chat_reactivo():
+        contenedor_mensajes = st.container(height=420)
+        
+        with contenedor_mensajes:
+            if not historial_global:
+                st.markdown("<span style='color:#8a94a6;'>No hay registros de texto en la sesión actual.</span>", unsafe_allow_html=True)
+            else:
+                for i, msg in enumerate(historial_global):
+                    hora_actual = msg["hora"]
+                    id_attr = f'id="ultimo_msg"' if i == len(historial_global) - 1 else ""
+                    
+                    if msg["remitente"] == usuario:
+                        st.markdown(f"<div {id_attr} style='margin-bottom:4px;'><b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"<div {id_attr} style='margin-bottom:4px;'><b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
+                    st.markdown("<hr style='margin:8px 0; border:0; border-top:1px solid #283143;'>", unsafe_allow_html=True)
                 
-                if msg["remitente"] == usuario:
-                    st.markdown(f"<div {id_attr} style='margin-bottom:4px;'><b style='color:#0070FF;'>[Tú]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown(f"<div {id_attr} style='margin-bottom:4px;'><b style='color:#e1e4ea;'>[{msg['remitente']}]</b> <span style='color:#8a94a6; font-size:11px;'>({hora_actual}):</span> <br>{msg['texto']}</div>", unsafe_allow_html=True)
-                st.markdown("<hr style='margin:8px 0; border:0; border-top:1px solid #283143;'>", unsafe_allow_html=True)
-            
-            # SCRIPT DE AUTO-FOCUS (Auto-Scroll al último mensaje recibido)
+                # SCRIPT DE AUTO-FOCUS (Foco al último mensaje recibido)
+                st.markdown("""
+                    <script>
+                        setTimeout(() => {
+                            const elemento = document.getElementById('ultimo_msg');
+                            if (elemento) {
+                                elemento.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                            }
+                        }, 100);
+                    </script>
+                """, unsafe_allow_html=True)
+
+        # Inyección del efecto de sonido si entra un mensaje nuevo al ecosistema común
+        if len(historial_global) > st.session_state["mensajes_vistos"]:
+            st.session_state["mensajes_vistos"] = len(historial_global)
             st.markdown("""
-                <script>
-                    setTimeout(() => {
-                        const elemento = document.getElementById('ultimo_msg');
-                        if (elemento) {
-                            elemento.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                        }
-                    }, 100);
-                </script>
+                <audio autoplay>
+                    <source src="https://assets.mixkit.co/active_storage/sfx/2357/2357-84.wav" type="audio/wav">
+                </audio>
             """, unsafe_allow_html=True)
 
-    # Inyección del efecto de sonido si hay un mensaje nuevo en el buffer global
-    if len(historial_global) > st.session_state["mensajes_vistos"]:
-        st.session_state["mensajes_vistos"] = len(historial_global)
-        # Audio limpio sintetizado en formato Base64 (un 'Ping' nítido de notificación VMS)
-        st.markdown("""
-            <audio autoplay>
-                <source src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==\n" type="audio/wav">
-                <source src="https://assets.mixkit.co/active_storage/sfx/2357/2357-84.wav" type="audio/wav">
-            </audio>
-        """, unsafe_allow_html=True)
+        with st.form("formulario_envio", clear_on_submit=True):
+            nuevo_mensaje = st.text_input("Ingresar mensaje...", placeholder="Escribir mensaje...")
+            boton_enviar = st.form_submit_button("Enviar Mensaje")
+            
+            if boton_enviar and nuevo_mensaje.strip() != "":
+                ahora = datetime.datetime.now().strftime("%H:%M:%S")
+                historial_global.append({
+                    "remitente": usuario,
+                    "texto": nuevo_mensaje,
+                    "hora": ahora
+                })
+                st.session_state["mensajes_vistos"] = len(historial_global)
+                st.rerun()
 
-    with st.form("formulario_envio", clear_on_submit=True):
-        nuevo_mensaje = st.text_input("Ingresar mensaje...", placeholder="Escribir mensaje...")
-        boton_enviar = st.form_submit_button("Enviar Mensaje")
-        
-        if boton_enviar and nuevo_mensaje.strip() != "":
-            ahora = datetime.datetime.now().strftime("%H:%M:%S")
-            historial_global.append({
-                "remitente": usuario,
-                "texto": nuevo_mensaje,
-                "hora": ahora
-            })
-            st.session_state["mensajes_vistos"] = len(historial_global)
-            st.rerun()
+    # Ejecuta el chat dinámico
+    renderizar_chat_reactivo()
 
 # ==========================================
-# 2. PANEL DE VIDEO SEGURO (CONEXIÓN DIRECTA)
+# 2. PANEL DE VIDEO SEGURO (ESTABLE Y FIJO)
 # ==========================================
 with col_video:
     st.markdown("### 📺 Video en Directo")
     
     ID_SALA_EQUIPO = "Aura19997822252"
     
-    # MODIFICACIÓN CRÍTICA JITSI: Pasamos las propiedades directamente en la inicialización de la URL de la API
-    # para forzar la omisión completa de la pantalla previa 'Prejoin' (Textos amarillos)
     codigo_api_jitsi = f"""
     <div id="jitsi-container" style="height: 485px; width: 100%; border: 1px solid #283143; border-radius: 4px; background-color: #171b26;"></div>
     
